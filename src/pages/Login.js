@@ -39,52 +39,70 @@ const Login = () => {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat relative"
+      className="h-screen w-screen flex items-center justify-center bg-cover bg-center bg-no-repeat relative"
       style={{
         backgroundImage: `url('/nen.avif')`,
+        minWidth: '1024px',
+        minHeight: '1366px',
       }}
     >
       <div className="absolute inset-0 bg-black bg-opacity-40"></div>
-      <Card className="w-full max-w-md shadow-lg relative z-10">
-        <div className="text-center mb-6">
-          <Title level={2} className="mb-2">
+      <Card 
+        className="w-[600px] shadow-2xl relative z-10"
+        style={{
+          padding: '60px 50px',
+          borderRadius: '16px',
+        }}
+      >
+        <div className="text-center mb-10">
+          <Title level={1} className="mb-4" style={{ fontSize: '48px', fontWeight: 'bold' }}>
             Đăng Nhập
           </Title>
-          <p className="text-gray-500">Vui lòng đăng nhập vào hệ thống</p>
+          <p className="text-gray-600 text-lg">Vui lòng đăng nhập vào hệ thống</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="mb-6">
+            <label className="block text-base font-medium text-gray-700 mb-3" style={{ fontSize: '18px' }}>
               Tên đăng nhập
             </label>
             <Input
               {...register('username')}
               size="large"
-              prefix={<UserOutlined className="text-gray-400" />}
+              prefix={<UserOutlined className="text-gray-400" style={{ fontSize: '20px' }} />}
               placeholder="Nhập tên đăng nhập"
               className={errors.username ? 'border-red-500' : ''}
+              style={{
+                height: '56px',
+                fontSize: '18px',
+                padding: '12px 16px',
+              }}
             />
             {errors.username && (
-              <p className="text-red-500 text-sm mt-1">
+              <p className="text-red-500 text-base mt-2" style={{ fontSize: '16px' }}>
                 {errors.username.message}
               </p>
             )}
           </div>
 
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="mb-8">
+            <label className="block text-base font-medium text-gray-700 mb-3" style={{ fontSize: '18px' }}>
               Mật khẩu
             </label>
             <Input.Password
               {...register('password')}
               size="large"
-              prefix={<LockOutlined className="text-gray-400" />}
+              prefix={<LockOutlined className="text-gray-400" style={{ fontSize: '20px' }} />}
               placeholder="Nhập mật khẩu"
               className={errors.password ? 'border-red-500' : ''}
+              style={{
+                height: '56px',
+                fontSize: '18px',
+                padding: '12px 16px',
+              }}
             />
             {errors.password && (
-              <p className="text-red-500 text-sm mt-1">
+              <p className="text-red-500 text-base mt-2" style={{ fontSize: '16px' }}>
                 {errors.password.message}
               </p>
             )}
@@ -97,6 +115,12 @@ const Login = () => {
             block
             loading={isSubmitting}
             className="bg-blue-600 hover:bg-blue-700"
+            style={{
+              height: '60px',
+              fontSize: '20px',
+              fontWeight: '600',
+              borderRadius: '8px',
+            }}
           >
             Đăng Nhập
           </Button>
