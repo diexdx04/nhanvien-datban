@@ -2,6 +2,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { useNavigate } from 'react-router-dom';
 import { Input, Button, Card, Typography } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 
@@ -19,6 +20,7 @@ const loginSchema = yup.object({
 });
 
 const Login = () => {
+  const navigate = useNavigate();
   const {
     register,
     handleSubmit,
@@ -30,7 +32,7 @@ const Login = () => {
   const onSubmit = async (data) => {
     try {
       console.log('Login data:', data);
-        alert('Đăng nhập thành công!');
+      navigate('/tables');
     } catch (error) {
       console.error('Login error:', error);
       alert('Đăng nhập thất bại!');
