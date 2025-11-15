@@ -28,15 +28,25 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Tối ưu cho iPad */
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
 }
 
-/* Cho phép select text trong input */
 input, textarea {
   -webkit-user-select: text;
   user-select: text;
+}
+
+* {
+  transition: none !important;
+}
+
+.ant-card:hover,
+.ant-btn:hover,
+.ant-input:hover,
+.ant-input-number:hover {
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 code {

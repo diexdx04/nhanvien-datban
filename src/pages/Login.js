@@ -3,17 +3,18 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useNavigate } from 'react-router-dom';
-import { Input, Button, Card, Typography } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { Input, Button, Card, Typography, message } from 'antd';
+import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import useDeviceType from '../hooks/useDeviceType';
+import { login } from '../service/auth';
 
 const { Title } = Typography;
 
 const loginSchema = yup.object({
-  username: yup
+  email: yup
     .string()
-    .required('Vui lòng nhập tên đăng nhập')
-    .min(3, 'Tên đăng nhập phải có ít nhất 3 ký tự'),
+    .required('Vui lòng nhập email')
+    .email('Email không hợp lệ'),
   password: yup
     .string()
     .required('Vui lòng nhập mật khẩu')
@@ -52,11 +53,24 @@ const Login = () => {
 
   const onSubmit = async (data) => {
     try {
-      console.log('Login data:', data);
-      navigate('/tables');
+      const response = await login(data.email, data.password);
+      
+      if (response.success && response.data) {
+        // Lưu token vào localStorage
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        
+        message.success(response.message || 'Đăng nhập thành công!');
+        
+        // Chuyển đến trang quản lý bàn
+        navigate('/tables');
+      } else {
+        message.error(response.message || 'Đăng nhập thất bại!');
+      }
     } catch (error) {
       console.error('Login error:', error);
-      alert('Đăng nhập thất bại!');
+      const errorMessage = error?.message || error?.data?.message || 'Đăng nhập thất bại!';
+      message.error(errorMessage);
     }
   };
 
@@ -88,23 +102,24 @@ const Login = () => {
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className={mbSpacing.mb6}>
             <label className="block font-medium text-gray-700 mb-3" style={{ fontSize: labelSize }}>
-              Tên đăng nhập
+              Email
             </label>
             <Input
-              {...register('username')}
+              {...register('email')}
+              type="email"
               size="large"
-              prefix={<UserOutlined className="text-gray-400" style={{ fontSize: iconSize }} />}
-              placeholder="Nhập tên đăng nhập"
-              className={errors.username ? 'border-red-500' : ''}
+              prefix={<MailOutlined className="text-gray-400" style={{ fontSize: iconSize }} />}
+              placeholder="Nhập email"
+              className={errors.email ? 'border-red-500' : ''}
               style={{
                 height: inputHeight,
                 fontSize: inputFontSize,
                 padding: '12px 16px',
               }}
             />
-            {errors.username && (
+            {errors.email && (
               <p className="text-red-500 mt-2" style={{ fontSize: isTablet ? '16px' : '14px' }}>
-                {errors.username.message}
+                {errors.email.message}
               </p>
             )}
           </div>
@@ -138,7 +153,7 @@ const Login = () => {
             size="large"
             block
             loading={isSubmitting}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-blue-600"
             style={{
               height: buttonHeight,
               fontSize: buttonFontSize,
