@@ -4,18 +4,25 @@ import { CheckOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 
-const StatusColumn = ({ record, getPendingOrders, onConfirmOrder }) => {
+const StatusColumn = ({ record, getPendingOrders, onConfirmOrder, isTablet = true }) => {
   const pendingOrders = getPendingOrders(record.orders);
   const count = pendingOrders.length;
+  const buttonHeight = isTablet ? '48px' : '40px';
+  const buttonFontSize = isTablet ? '16px' : '14px';
+  const buttonMinWidth = isTablet ? '120px' : '100px';
 
   const renderStatusContent = () => {
+    const contentFontSize = isTablet ? '16px' : '14px';
+    const titleSize = isTablet ? '20px' : '18px';
+    const popoverMinWidth = isTablet ? '300px' : '250px';
+    
     if (pendingOrders.length === 0) {
-      return <Text style={{ fontSize: '16px' }}>Không có món mới</Text>;
+      return <Text style={{ fontSize: contentFontSize }}>Không có món mới</Text>;
     }
 
     return (
-      <div style={{ minWidth: '300px' }}>
-        <Title level={4} style={{ marginBottom: '16px', fontSize: '20px' }}>
+      <div style={{ minWidth: popoverMinWidth }}>
+        <Title level={4} style={{ marginBottom: '16px', fontSize: titleSize }}>
           Món mới thêm:
         </Title>
         {pendingOrders.map((order) => (
@@ -32,7 +39,7 @@ const StatusColumn = ({ record, getPendingOrders, onConfirmOrder }) => {
             }}
           >
             <div>
-              <Text strong style={{ fontSize: '16px', display: 'block' }}>
+              <Text strong style={{ fontSize: contentFontSize, display: 'block' }}>
                 {order.dish} x {order.quantity}
               </Text>
             </div>
@@ -41,7 +48,7 @@ const StatusColumn = ({ record, getPendingOrders, onConfirmOrder }) => {
               icon={<CheckOutlined />}
               onClick={() => onConfirmOrder(record.id, order.id)}
               size="middle"
-              style={{ fontSize: '14px' }}
+              style={{ fontSize: isTablet ? '14px' : '12px' }}
             >
               Đã xong
             </Button>
@@ -61,9 +68,9 @@ const StatusColumn = ({ record, getPendingOrders, onConfirmOrder }) => {
       <Button
         type={count > 0 ? 'primary' : 'default'}
         style={{
-          fontSize: '16px',
-          height: '48px',
-          minWidth: '120px',
+          fontSize: buttonFontSize,
+          height: buttonHeight,
+          minWidth: buttonMinWidth,
         }}
       >
         {count > 0 ? `${count} món mới` : 'Xem trạng thái'}

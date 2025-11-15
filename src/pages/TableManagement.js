@@ -3,6 +3,7 @@ import { Card, Table, Typography } from 'antd';
 import DishListColumn from '../components/DishListColumn';
 import StatusColumn from '../components/StatusColumn';
 import ActionColumn from '../components/ActionColumn';
+import useDeviceType from '../hooks/useDeviceType';
 
 const { Title, Text } = Typography;
 
@@ -39,7 +40,10 @@ const initialTables = [
 ];
 
 const TableManagement = () => {
+  const deviceType = useDeviceType();
   const [tables, setTables] = useState(initialTables);
+  
+  const isTablet = deviceType === 'tablet';
 
   const getConfirmedOrders = (orders) => {
     return orders.filter(order => order.confirmed === true);
@@ -69,13 +73,19 @@ const TableManagement = () => {
   const handleAddDish = (tableId) => {
   };
 
+  const titleSize = isTablet ? '42px' : '32px';
+  const cardTitleSize = isTablet ? '32px' : '24px';
+  const tableFontSize = isTablet ? '18px' : '16px';
+  const columnWidth = isTablet ? { name: 150, status: 200, action: 150 } : { name: 120, status: 180, action: 130 };
+  const padding = isTablet ? '30px' : '20px';
+
   const tableColumns = [
     {
       title: 'Bàn',
       dataIndex: 'name',
       key: 'name',
-      width: 150,
-      render: (text) => <Text strong style={{ fontSize: '18px' }}>{text}</Text>,
+      width: columnWidth.name,
+      render: (text) => <Text strong style={{ fontSize: tableFontSize }}>{text}</Text>,
     },
     {
       title: 'Danh sách món',
@@ -84,29 +94,32 @@ const TableManagement = () => {
         <DishListColumn
           orders={record.orders}
           getConfirmedOrders={getConfirmedOrders}
+          isTablet={isTablet}
         />
       ),
     },
     {
       title: 'Trạng thái',
       key: 'status',
-      width: 200,
+      width: columnWidth.status,
       render: (_, record) => (
         <StatusColumn
           record={record}
           getPendingOrders={getPendingOrders}
           onConfirmOrder={handleConfirmOrder}
+          isTablet={isTablet}
         />
       ),
     },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 150,
+      width: columnWidth.action,
       render: (_, record) => (
         <ActionColumn
           record={record}
           onAddDish={handleAddDish}
+          isTablet={isTablet}
         />
       ),
     },
@@ -116,14 +129,13 @@ const TableManagement = () => {
     <div
       className="h-screen w-screen bg-gray-50"
       style={{
-        minWidth: '1024px',
-        minHeight: '1366px',
-        padding: '30px',
+        ...(isTablet ? { minWidth: '1024px', minHeight: '1366px' } : { width: '100%', height: '100vh' }),
+        padding: padding,
         overflow: 'auto',
       }}
     >
       <div className="mb-6">
-        <Title level={1} style={{ margin: 0, fontSize: '42px' }}>
+        <Title level={1} style={{ margin: 0, fontSize: titleSize }}>
           Quản Lý Bàn Ăn
         </Title>
       </div>
@@ -131,7 +143,7 @@ const TableManagement = () => {
       <div>
         <Card
           title={
-            <Title level={2} style={{ margin: 0, fontSize: '32px' }}>
+            <Title level={2} style={{ margin: 0, fontSize: cardTitleSize }}>
               Đơn đặt bàn
             </Title>
           }
@@ -141,8 +153,8 @@ const TableManagement = () => {
             columns={tableColumns}
             rowKey="id"
             pagination={false}
-            size="large"
-            style={{ fontSize: '18px' }}
+            size={isTablet ? 'large' : 'middle'}
+            style={{ fontSize: tableFontSize }}
           />
         </Card>
       </div>
