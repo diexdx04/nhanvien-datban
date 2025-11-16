@@ -46,7 +46,7 @@ const StatusColumn = ({ record, getPendingOrders, onConfirmOrder, isTablet = tru
             <Button
               type="primary"
               icon={<CheckOutlined />}
-              onClick={() => onConfirmOrder(record.id, order.id)}
+              onClick={() => onConfirmOrder(record.reservation_code || record.id, order.id)}
               size="middle"
               style={{ fontSize: isTablet ? '14px' : '12px' }}
             >

@@ -1,7 +1,6 @@
 import axiosInstance from '../api/axiosInstance';
 
 export const login = async (email, password) => {
-  // Tạo config riêng cho login để không gửi token
   const config = {
     headers: {
       'Accept': 'application/json',

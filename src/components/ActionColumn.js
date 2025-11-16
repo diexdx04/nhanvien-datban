@@ -12,7 +12,7 @@ const ActionColumn = ({ record, onAddDish, isTablet = true }) => {
       icon={<PlusOutlined />}
       size={isTablet ? 'large' : 'middle'}
       style={{ fontSize: buttonFontSize, height: buttonHeight }}
-      onClick={() => onAddDish && onAddDish(record.id)}
+      onClick={() => onAddDish && onAddDish(record.reservation_code || record.id)}
     >
       Thêm món
     </Button>

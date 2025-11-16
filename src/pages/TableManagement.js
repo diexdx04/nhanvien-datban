@@ -1,49 +1,111 @@
-import React, { useState } from 'react';
-import { Card, Table, Typography } from 'antd';
+import React, { useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Card, Table, Typography, message } from 'antd';
 import DishListColumn from '../components/DishListColumn';
 import StatusColumn from '../components/StatusColumn';
 import ActionColumn from '../components/ActionColumn';
 import useDeviceType from '../hooks/useDeviceType';
+import { getServingReservations } from '../service/tables';
 
 const { Title, Text } = Typography;
 
-const initialTables = [
-  {
-    id: 1,
-    name: 'Bàn 1',
-    orders: [
-      { id: 1, dish: 'Phở Bò', quantity: 2, price: 80000, confirmed: true },
-      { id: 2, dish: 'Bánh Mì', quantity: 1, price: 25000, confirmed: true },
-      { id: 3, dish: 'Nước ngọt', quantity: 2, price: 15000, confirmed: false },
-    ],
-  },
-  {
-    id: 2,
-    name: 'Bàn 2',
-    orders: [
-      { id: 4, dish: 'Cơm Gà', quantity: 3, price: 60000, confirmed: true },
-      { id: 5, dish: 'Canh chua', quantity: 1, price: 50000, confirmed: false },
-    ],
-  },
-  {
-    id: 3,
-    name: 'Bàn 3',
-    orders: [],
-  },
-  {
-    id: 4,
-    name: 'Bàn 4',
-    orders: [
-      { id: 6, dish: 'Bún bò', quantity: 2, price: 70000, confirmed: false },
-    ],
-  },
-];
-
 const TableManagement = () => {
   const deviceType = useDeviceType();
-  const [tables, setTables] = useState(initialTables);
+  const queryClient = useQueryClient();
+  const [messageApi, contextHolder] = message.useMessage();
   
   const isTablet = deviceType === 'tablet';
+
+  const transformReservations = (data) => {
+    if (!data || !data.success || !data.data) {
+      return [];
+    }
+
+    return data.data.map((reservation) => {
+      const orders = reservation.menus.map((menu) => ({
+        id: menu.id,
+        dish: menu.name,
+        quantity: menu.quantity,
+        price: parseFloat(menu.price),
+        confirmed: true,
+      }));
+
+      return {
+        id: reservation.reservation_code,
+        reservation_code: reservation.reservation_code,
+        tables: reservation.tables,
+        orders: orders,
+      };
+    });
+  };
+
+  const {
+    data: reservationsData,
+    isLoading,
+  } = useQuery({
+    queryKey: ['servingReservations'],
+    queryFn: async () => {
+      const response = await getServingReservations();
+      return response;
+    },
+    select: (data) => transformReservations(data),
+    onError: (error) => {
+      let errorMessage = 'Lỗi khi tải danh sách đơn đặt bàn!';
+      
+      if (error && typeof error === 'object') {
+        if (error.message) {
+          errorMessage = error.message;
+        } else if (error.response && error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        }
+      }
+      
+      messageApi.error(errorMessage);
+    },
+  });
+
+  const confirmOrderMutation = useMutation({
+    mutationFn: async ({ reservationCode, orderId }) => {
+      return { reservationCode, orderId };
+    },
+    onMutate: async ({ reservationCode, orderId }) => {
+      await queryClient.cancelQueries({ queryKey: ['servingReservations'] });
+
+      const previousReservations = queryClient.getQueryData(['servingReservations']);
+
+      queryClient.setQueryData(['servingReservations'], (old) => {
+        if (!old) return old;
+        return old.map((reservation) =>
+          reservation.reservation_code === reservationCode
+            ? {
+                ...reservation,
+                orders: reservation.orders.map((order) =>
+                  order.id === orderId
+                    ? { ...order, confirmed: true }
+                    : order
+                ),
+              }
+            : reservation
+        );
+      });
+
+      return { previousReservations };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousReservations) {
+        queryClient.setQueryData(['servingReservations'], context.previousReservations);
+      }
+      messageApi.error('Không thể xác nhận món!');
+    },
+    onSuccess: () => {
+      messageApi.success('Đã xác nhận món thành công!');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['servingReservations'] });
+    },
+  });
+
+  const reservations = useMemo(() => reservationsData || [], [reservationsData]);
 
   const getConfirmedOrders = (orders) => {
     return orders.filter(order => order.confirmed === true);
@@ -53,39 +115,28 @@ const TableManagement = () => {
     return orders.filter(order => order.confirmed === false);
   };
 
-  const handleConfirmOrder = (tableId, orderId) => {
-    setTables(prevTables =>
-      prevTables.map(table =>
-        table.id === tableId
-          ? {
-              ...table,
-              orders: table.orders.map(order =>
-                order.id === orderId
-                  ? { ...order, confirmed: true }
-                  : order
-              ),
-            }
-          : table
-      )
-    );
+  const handleConfirmOrder = (reservationCode, orderId) => {
+    confirmOrderMutation.mutate({ reservationCode, orderId });
   };
 
-  const handleAddDish = (tableId) => {
+  const handleAddDish = (reservationCode) => {
   };
 
   const titleSize = isTablet ? '42px' : '32px';
   const cardTitleSize = isTablet ? '32px' : '24px';
   const tableFontSize = isTablet ? '18px' : '16px';
-  const columnWidth = isTablet ? { name: 150, status: 200, action: 150 } : { name: 120, status: 180, action: 130 };
+  const columnWidth = isTablet ? { name: 200, status: 200, action: 150 } : { name: 180, status: 180, action: 130 };
   const padding = isTablet ? '30px' : '20px';
 
   const tableColumns = [
     {
       title: 'Bàn',
-      dataIndex: 'name',
-      key: 'name',
+      key: 'tables',
       width: columnWidth.name,
-      render: (text) => <Text strong style={{ fontSize: tableFontSize }}>{text}</Text>,
+      render: (_, record) => {
+        const tableNames = record.tables.map(table => table.name).join(', ');
+        return <Text strong style={{ fontSize: tableFontSize }}>{tableNames}</Text>;
+      },
     },
     {
       title: 'Danh sách món',
@@ -126,39 +177,43 @@ const TableManagement = () => {
   ];
 
   return (
-    <div
-      className="h-screen w-screen bg-gray-50"
-      style={{
-        ...(isTablet ? { minWidth: '1024px', minHeight: '1366px' } : { width: '100%', height: '100vh' }),
-        padding: padding,
-        overflow: 'auto',
-      }}
-    >
-      <div className="mb-6">
-        <Title level={1} style={{ margin: 0, fontSize: titleSize }}>
-          Quản Lý Bàn Ăn
-        </Title>
-      </div>
+    <>
+      {contextHolder}
+      <div
+        className="h-screen w-screen bg-gray-50"
+        style={{
+          ...(isTablet ? { minWidth: '1024px', minHeight: '1366px' } : { width: '100%', height: '100vh' }),
+          padding: padding,
+          overflow: 'auto',
+        }}
+      >
+        <div className="mb-6">
+          <Title level={1} style={{ margin: 0, fontSize: titleSize }}>
+            Quản Lý Bàn Ăn
+          </Title>
+        </div>
 
-      <div>
-        <Card
-          title={
-            <Title level={2} style={{ margin: 0, fontSize: cardTitleSize }}>
-              Đơn đặt bàn
-            </Title>
-          }
-        >
-          <Table
-            dataSource={tables}
-            columns={tableColumns}
-            rowKey="id"
-            pagination={false}
-            size={isTablet ? 'large' : 'middle'}
-            style={{ fontSize: tableFontSize }}
-          />
-        </Card>
+        <div>
+          <Card
+            title={
+              <Title level={2} style={{ margin: 0, fontSize: cardTitleSize }}>
+                Đơn đặt bàn
+              </Title>
+            }
+          >
+            <Table
+              dataSource={reservations}
+              columns={tableColumns}
+              rowKey="reservation_code"
+              pagination={false}
+              size={isTablet ? 'large' : 'middle'}
+              style={{ fontSize: tableFontSize }}
+              loading={isLoading}
+            />
+          </Card>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
