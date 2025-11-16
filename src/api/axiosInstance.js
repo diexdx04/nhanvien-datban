@@ -29,9 +29,12 @@ axiosInstance.interceptors.response.use(
     if (error.response) {
       const { status, data } = error.response;
       
-      if (status === 401) {
+      if (status === 401 && localStorage.getItem('token')) {
         localStorage.removeItem('token');
-        window.location.href = '/';
+        localStorage.removeItem('user');
+        if (window.location.pathname !== '/') {
+          window.location.href = '/';
+        }
       }
       
       return Promise.reject(data || error);

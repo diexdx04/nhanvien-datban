@@ -1,5 +1,5 @@
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useNavigate } from 'react-router-dom';
@@ -24,15 +24,16 @@ const loginSchema = yup.object({
 const Login = () => {
   const navigate = useNavigate();
   const deviceType = useDeviceType();
+  const [messageApi, contextHolder] = message.useMessage();
   const {
-    register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: yupResolver(loginSchema),
+    mode: 'onBlur',
   });
 
-  // Styles theo device type
   const isTablet = deviceType === 'tablet';
   const containerStyle = isTablet
     ? { minWidth: '1024px', minHeight: '1366px' }
@@ -54,120 +55,176 @@ const Login = () => {
   const onSubmit = async (data) => {
     try {
       const response = await login(data.email, data.password);
+  
       
-      if (response.success && response.data) {
-        // Lưu token vào localStorage
+      if (response && response.success === false) {
+        messageApi.error(response.message || 'Email hoặc mật khẩu không đúng.');
+        return;
+      }
+      
+      if (response && response.success === true && response.data) {
+        const user = response.data.user;
+     
+        
+        if (!user) {
+          messageApi.error('Không tìm thấy thông tin người dùng!');
+          return;
+        }
+        
+        if (user.role !== 'admin') {
+          messageApi.error('Bạn không có quyền truy cập!');
+          return;
+        }
+        
         localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem('user', JSON.stringify(user));
         
-        message.success(response.message || 'Đăng nhập thành công!');
+        messageApi.success(response.message || 'Đăng nhập thành công!');
         
-        // Chuyển đến trang quản lý bàn
         navigate('/tables');
       } else {
-        message.error(response.message || 'Đăng nhập thất bại!');
+        messageApi.error(response?.message || 'Vui lòng kiểm tra lại thông tin đăng nhập!');
       }
     } catch (error) {
-      console.error('Login error:', error);
-      const errorMessage = error?.message || error?.data?.message || 'Đăng nhập thất bại!';
-      message.error(errorMessage);
+      
+      let errorMessage = 'Đăng nhập thất bại!';
+      
+      if (error && typeof error === 'object') {
+        if (error.message) {
+          errorMessage = error.message;
+        } 
+        else if (error.response && error.response.data) {
+          if (error.response.data.errors) {
+            const allErrors = Object.values(error.response.data.errors).flat();
+            errorMessage = allErrors.join(', ');
+          } else if (error.response.data.message) {
+            errorMessage = error.response.data.message;
+          }
+        }
+        else if (error.data && error.data.message) {
+          errorMessage = error.data.message;
+        }
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      messageApi.error(errorMessage);
     }
   };
 
   return (
-    <div 
-      className="h-screen w-screen flex items-center justify-center bg-cover bg-center bg-no-repeat relative"
-      style={{
-        backgroundImage: `url('/nen.avif')`,
-        ...containerStyle,
-      }}
-    >
-      <div className="absolute inset-0 bg-black bg-opacity-40"></div>
-      <Card 
-        className="shadow-2xl relative z-10"
+    <>
+      {contextHolder}
+      <div 
+        className="h-screen w-screen flex items-center justify-center bg-cover bg-center bg-no-repeat relative"
         style={{
-          ...cardStyle,
-          borderRadius: '16px',
+          backgroundImage: `url('/nen.avif')`,
+          ...containerStyle,
         }}
       >
-        <div className={`text-center ${mbSpacing.mb10}`}>
-          <Title level={1} className="mb-4" style={{ fontSize: titleSize, fontWeight: 'bold' }}>
-            Đăng Nhập
-          </Title>
-          <p className="text-gray-600" style={{ fontSize: isTablet ? '18px' : '16px' }}>
-            Vui lòng đăng nhập vào hệ thống
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className={mbSpacing.mb6}>
-            <label className="block font-medium text-gray-700 mb-3" style={{ fontSize: labelSize }}>
-              Email
-            </label>
-            <Input
-              {...register('email')}
-              type="email"
-              size="large"
-              prefix={<MailOutlined className="text-gray-400" style={{ fontSize: iconSize }} />}
-              placeholder="Nhập email"
-              className={errors.email ? 'border-red-500' : ''}
-              style={{
-                height: inputHeight,
-                fontSize: inputFontSize,
-                padding: '12px 16px',
-              }}
-            />
-            {errors.email && (
-              <p className="text-red-500 mt-2" style={{ fontSize: isTablet ? '16px' : '14px' }}>
-                {errors.email.message}
-              </p>
-            )}
+        <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+        <Card 
+          className="shadow-2xl relative z-10"
+          style={{
+            ...cardStyle,
+            borderRadius: '16px',
+          }}
+        >
+          <div className={`text-center ${mbSpacing.mb10}`}>
+            <Title level={1} className="mb-4" style={{ fontSize: titleSize, fontWeight: 'bold' }}>
+              Đăng Nhập
+            </Title>
+            <p className="text-gray-600" style={{ fontSize: isTablet ? '18px' : '16px' }}>
+              Vui lòng đăng nhập vào hệ thống
+            </p>
           </div>
 
-          <div className={mbSpacing.mb8}>
-            <label className="block font-medium text-gray-700 mb-3" style={{ fontSize: labelSize }}>
-              Mật khẩu
-            </label>
-            <Input.Password
-              {...register('password')}
-              size="large"
-              prefix={<LockOutlined className="text-gray-400" style={{ fontSize: iconSize }} />}
-              placeholder="Nhập mật khẩu"
-              className={errors.password ? 'border-red-500' : ''}
-              style={{
-                height: inputHeight,
-                fontSize: inputFontSize,
-                padding: '12px 16px',
-              }}
-            />
-            {errors.password && (
-              <p className="text-red-500 mt-2" style={{ fontSize: isTablet ? '16px' : '14px' }}>
-                {errors.password.message}
-              </p>
-            )}
-          </div>
-
-          <Button
-            type="primary"
-            htmlType="submit"
-            size="large"
-            block
-            loading={isSubmitting}
-            className="bg-blue-600"
-            style={{
-              height: buttonHeight,
-              fontSize: buttonFontSize,
-              fontWeight: '600',
-              borderRadius: '8px',
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit(onSubmit)(e);
             }}
           >
-            Đăng Nhập
-          </Button>
-        </form>
-      </Card>
-    </div>
+            <div className={mbSpacing.mb6}>
+              <label className="block font-medium text-gray-700 mb-3" style={{ fontSize: labelSize }}>
+                Email
+              </label>
+              <Controller
+                name="email"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    type="email"
+                    size="large"
+                    prefix={<MailOutlined className="text-gray-400" style={{ fontSize: iconSize }} />}
+                    placeholder="Nhập email"
+                    status={errors.email ? 'error' : ''}
+                    style={{
+                      height: inputHeight,
+                      fontSize: inputFontSize,
+                      padding: '12px 16px',
+                    }}
+                  />
+                )}
+              />
+              {errors.email && (
+                <p className="text-red-500 mt-2" style={{ fontSize: isTablet ? '16px' : '14px' }}>
+                  {errors.email.message}
+                </p>
+              )}
+            </div>
+
+            <div className={mbSpacing.mb8}>
+              <label className="block font-medium text-gray-700 mb-3" style={{ fontSize: labelSize }}>
+                Mật khẩu
+              </label>
+              <Controller
+                name="password"
+                control={control}
+                render={({ field }) => (
+                  <Input.Password
+                    {...field}
+                    size="large"
+                    prefix={<LockOutlined className="text-gray-400" style={{ fontSize: iconSize }} />}
+                    placeholder="Nhập mật khẩu"
+                    status={errors.password ? 'error' : ''}
+                    style={{
+                      height: inputHeight,
+                      fontSize: inputFontSize,
+                      padding: '12px 16px',
+                    }}
+                  />
+                )}
+              />
+              {errors.password && (
+                <p className="text-red-500 mt-2" style={{ fontSize: isTablet ? '16px' : '14px' }}>
+                  {errors.password.message}
+                </p>
+              )}
+            </div>
+
+            <Button
+              type="primary"
+              htmlType="submit"
+              size="large"
+              block
+              loading={isSubmitting}
+              className="bg-blue-600"
+              style={{
+                height: buttonHeight,
+                fontSize: buttonFontSize,
+                fontWeight: '600',
+                borderRadius: '8px',
+              }}
+            >
+              Đăng Nhập
+            </Button>
+          </form>
+        </Card>
+      </div>
+    </>
   );
 };
 
 export default Login;
-
