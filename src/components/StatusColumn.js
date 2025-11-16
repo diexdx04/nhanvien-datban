@@ -1,10 +1,10 @@
 import React from 'react';
-import { Button, Popover, Typography } from 'antd';
-import { CheckOutlined } from '@ant-design/icons';
+import { Button, Popover, Typography, Space } from 'antd';
+import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 
-const StatusColumn = ({ record, getPendingOrders, onConfirmOrder, isTablet = true }) => {
+const StatusColumn = ({ record, getPendingOrders, onConfirmOrder, onCancelOrder, isTablet = true }) => {
   const pendingOrders = getPendingOrders(record.orders);
   const count = pendingOrders.length;
   const buttonHeight = isTablet ? '48px' : '40px';
@@ -43,15 +43,26 @@ const StatusColumn = ({ record, getPendingOrders, onConfirmOrder, isTablet = tru
                 {order.dish} x {order.quantity}
               </Text>
             </div>
-            <Button
-              type="primary"
-              icon={<CheckOutlined />}
-              onClick={() => onConfirmOrder(record.reservation_code || record.id, order.id)}
-              size="middle"
-              style={{ fontSize: isTablet ? '14px' : '12px' }}
-            >
-              Đã xong
-            </Button>
+            <Space>
+              <Button
+                danger
+                icon={<CloseOutlined />}
+                onClick={() => onCancelOrder(record.reservation_code || record.id, order.id)}
+                size="middle"
+                style={{ fontSize: isTablet ? '14px' : '12px' }}
+              >
+                Hủy
+              </Button>
+              <Button
+                type="primary"
+                icon={<CheckOutlined />}
+                onClick={() => onConfirmOrder(record.reservation_code || record.id, order.id)}
+                size="middle"
+                style={{ fontSize: isTablet ? '14px' : '12px' }}
+              >
+                Đã xong
+              </Button>
+            </Space>
           </div>
         ))}
       </div>
@@ -73,7 +84,7 @@ const StatusColumn = ({ record, getPendingOrders, onConfirmOrder, isTablet = tru
           minWidth: buttonMinWidth,
         }}
       >
-        {count > 0 ? `${count} món mới` : 'Xem trạng thái'}
+        {count > 0 ? `${count} món mới` : 'Không có món mới'}
       </Button>
     </Popover>
   );

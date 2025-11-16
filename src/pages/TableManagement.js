@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, Table, Typography, message } from 'antd';
 import DishListColumn from '../components/DishListColumn';
 import StatusColumn from '../components/StatusColumn';
 import ActionColumn from '../components/ActionColumn';
+import AddDishModal from '../components/AddDishModal';
 import useDeviceType from '../hooks/useDeviceType';
 import { getServingReservations } from '../service/tables';
 
@@ -13,8 +14,80 @@ const TableManagement = () => {
   const deviceType = useDeviceType();
   const queryClient = useQueryClient();
   const [messageApi, contextHolder] = message.useMessage();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState(null);
   
   const isTablet = deviceType === 'tablet';
+
+  const STORAGE_KEY = 'pendingDishes';
+
+  const getPendingDishesFromStorage = () => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const savePendingDishesToStorage = (pendingDishes) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingDishes));
+    } catch (error) {
+      // Silent fail
+    }
+  };
+
+  const addPendingDishToStorage = (reservationCode, dishes) => {
+    const pendingDishes = getPendingDishesFromStorage();
+    const existing = pendingDishes[reservationCode] || [];
+    const newMenus = dishes.map((dish, index) => ({
+      id: `${dish.id}-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
+      dishId: dish.id,
+      name: dish.name,
+      quantity: dish.quantity,
+      price: dish.price.toString(),
+      _isNew: true,
+    }));
+    pendingDishes[reservationCode] = [...existing, ...newMenus];
+    savePendingDishesToStorage(pendingDishes);
+    return newMenus;
+  };
+
+  const removePendingDishFromStorage = (reservationCode, orderId) => {
+    const pendingDishes = getPendingDishesFromStorage();
+    if (pendingDishes[reservationCode]) {
+      pendingDishes[reservationCode] = pendingDishes[reservationCode].filter(
+        (menu) => menu.id !== orderId
+      );
+      if (pendingDishes[reservationCode].length === 0) {
+        delete pendingDishes[reservationCode];
+      }
+      savePendingDishesToStorage(pendingDishes);
+    }
+  };
+
+  const mergePendingDishesWithData = (data) => {
+    if (!data || !data.success || !data.data) {
+      return data;
+    }
+
+    const pendingDishes = getPendingDishesFromStorage();
+    const mergedData = {
+      ...data,
+      data: data.data.map((reservation) => {
+        const pendingMenus = pendingDishes[reservation.reservation_code] || [];
+        if (pendingMenus.length === 0) {
+          return reservation;
+        }
+        return {
+          ...reservation,
+          menus: [...(reservation.menus || []), ...pendingMenus],
+        };
+      }),
+    };
+    return mergedData;
+  };
 
   const transformReservations = (data) => {
     if (!data || !data.success || !data.data) {
@@ -27,7 +100,7 @@ const TableManagement = () => {
         dish: menu.name,
         quantity: menu.quantity,
         price: parseFloat(menu.price),
-        confirmed: true,
+        confirmed: menu._isNew ? false : true,
       }));
 
       return {
@@ -46,7 +119,8 @@ const TableManagement = () => {
     queryKey: ['servingReservations'],
     queryFn: async () => {
       const response = await getServingReservations();
-      return response;
+      const mergedData = mergePendingDishesWithData(response);
+      return mergedData;
     },
     select: (data) => transformReservations(data),
     onError: (error) => {
@@ -71,25 +145,36 @@ const TableManagement = () => {
     onMutate: async ({ reservationCode, orderId }) => {
       await queryClient.cancelQueries({ queryKey: ['servingReservations'] });
 
-      const previousReservations = queryClient.getQueryData(['servingReservations']);
+      const queryCache = queryClient.getQueryCache();
+      const query = queryCache.find({ queryKey: ['servingReservations'] });
+      const previousRawData = query?.state?.data;
 
-      queryClient.setQueryData(['servingReservations'], (old) => {
-        if (!old) return old;
-        return old.map((reservation) =>
-          reservation.reservation_code === reservationCode
-            ? {
+      removePendingDishFromStorage(reservationCode, orderId);
+
+      if (previousRawData && previousRawData.success && previousRawData.data) {
+        const updatedRawData = {
+          ...previousRawData,
+          data: previousRawData.data.map((reservation) => {
+            if (reservation.reservation_code === reservationCode) {
+              const updatedMenus = (reservation.menus || []).map((menu) => {
+                if (menu.id === orderId) {
+                  const { _isNew, ...menuWithoutNew } = menu;
+                  return menuWithoutNew;
+                }
+                return menu;
+              });
+              return {
                 ...reservation,
-                orders: reservation.orders.map((order) =>
-                  order.id === orderId
-                    ? { ...order, confirmed: true }
-                    : order
-                ),
-              }
-            : reservation
-        );
-      });
+                menus: updatedMenus,
+              };
+            }
+            return reservation;
+          }),
+        };
+        queryClient.setQueryData(['servingReservations'], updatedRawData);
+      }
 
-      return { previousReservations };
+      return { previousReservations: transformReservations(previousRawData || { success: true, data: [] }) };
     },
     onError: (err, variables, context) => {
       if (context?.previousReservations) {
@@ -105,13 +190,64 @@ const TableManagement = () => {
     },
   });
 
+  const addDishMutation = useMutation({
+    mutationFn: async ({ reservationCode, dishes }) => {
+      return Promise.resolve({ reservationCode, dishes });
+    },
+    onMutate: async ({ reservationCode, dishes }) => {
+      await queryClient.cancelQueries({ queryKey: ['servingReservations'] });
+
+      const queryCache = queryClient.getQueryCache();
+      const query = queryCache.find({ queryKey: ['servingReservations'] });
+      const previousRawData = query?.state?.data;
+
+      if (!previousRawData || !previousRawData.success || !previousRawData.data) {
+        return { previousReservations: null };
+      }
+
+      const newMenus = addPendingDishToStorage(reservationCode, dishes);
+
+      const updatedRawData = {
+        ...previousRawData,
+        data: previousRawData.data.map((reservation) => {
+          if (reservation.reservation_code === reservationCode) {
+            const currentMenus = reservation.menus || [];
+            return {
+              ...reservation,
+              menus: [...currentMenus, ...newMenus],
+            };
+          }
+          return reservation;
+        }),
+      };
+
+      queryClient.setQueryData(['servingReservations'], updatedRawData);
+
+      return { previousReservations: transformReservations(previousRawData) };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousReservations) {
+        queryClient.setQueryData(['servingReservations'], context.previousReservations);
+      }
+      const errorMessage = err?.message || 'Không thể thêm món!';
+      messageApi.error(errorMessage);
+    },
+    onSuccess: () => {
+      messageApi.success('Đã thêm món thành công!');
+    },
+  });
+
   const reservations = useMemo(() => reservationsData || [], [reservationsData]);
 
   const getConfirmedOrders = (orders) => {
+    if (!orders || !Array.isArray(orders)) return [];
     return orders.filter(order => order.confirmed === true);
   };
 
   const getPendingOrders = (orders) => {
+    if (!orders || !Array.isArray(orders)) {
+      return [];
+    }
     return orders.filter(order => order.confirmed === false);
   };
 
@@ -119,7 +255,75 @@ const TableManagement = () => {
     confirmOrderMutation.mutate({ reservationCode, orderId });
   };
 
+  const cancelOrderMutation = useMutation({
+    mutationFn: async ({ reservationCode, orderId }) => {
+      // TODO: Gọi API xóa món khi có endpoint
+      return Promise.resolve({ reservationCode, orderId });
+    },
+    onMutate: async ({ reservationCode, orderId }) => {
+      await queryClient.cancelQueries({ queryKey: ['servingReservations'] });
+
+      const queryCache = queryClient.getQueryCache();
+      const query = queryCache.find({ queryKey: ['servingReservations'] });
+      const previousRawData = query?.state?.data;
+
+      if (!previousRawData || !previousRawData.success || !previousRawData.data) {
+        return { previousRawData: null };
+      }
+
+      removePendingDishFromStorage(reservationCode, orderId);
+
+      const updatedRawData = {
+        ...previousRawData,
+        data: previousRawData.data.map((reservation) => {
+          if (reservation.reservation_code === reservationCode) {
+            const updatedMenus = (reservation.menus || []).filter(
+              (menu) => menu.id !== orderId
+            );
+            
+            return {
+              ...reservation,
+              menus: updatedMenus,
+            };
+          }
+          return reservation;
+        }),
+      };
+
+      queryClient.setQueryData(['servingReservations'], updatedRawData);
+
+      return { previousRawData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousRawData) {
+        queryClient.setQueryData(['servingReservations'], context.previousRawData);
+      }
+      messageApi.error('Không thể xóa món!');
+    },
+    onSuccess: () => {
+      messageApi.success('Đã xóa món thành công!');
+    },
+  });
+
+  const handleCancelOrder = (reservationCode, orderId) => {
+    cancelOrderMutation.mutate({ reservationCode, orderId });
+  };
+
   const handleAddDish = (reservationCode) => {
+    const reservation = reservations.find(r => r.reservation_code === reservationCode);
+    if (reservation) {
+      setSelectedReservation(reservation);
+      setModalOpen(true);
+    }
+  };
+
+  const handleAddDishSubmit = (reservationCode, dishes) => {
+    addDishMutation.mutate({ reservationCode, dishes });
+  };
+
+  const handleModalCancel = () => {
+    setModalOpen(false);
+    setSelectedReservation(null);
   };
 
   const titleSize = isTablet ? '42px' : '32px';
@@ -158,6 +362,7 @@ const TableManagement = () => {
           record={record}
           getPendingOrders={getPendingOrders}
           onConfirmOrder={handleConfirmOrder}
+          onCancelOrder={handleCancelOrder}
           isTablet={isTablet}
         />
       ),
@@ -175,6 +380,8 @@ const TableManagement = () => {
       ),
     },
   ];
+
+  const tableNames = selectedReservation?.tables.map(table => table.name) || [];
 
   return (
     <>
@@ -213,6 +420,15 @@ const TableManagement = () => {
           </Card>
         </div>
       </div>
+
+      <AddDishModal
+        open={modalOpen}
+        onCancel={handleModalCancel}
+        onAddDish={handleAddDishSubmit}
+        reservationCode={selectedReservation?.reservation_code}
+        tableNames={tableNames}
+        isTablet={isTablet}
+      />
     </>
   );
 };
