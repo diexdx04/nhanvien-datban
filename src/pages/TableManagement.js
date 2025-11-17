@@ -6,7 +6,7 @@ import StatusColumn from '../components/StatusColumn';
 import ActionColumn from '../components/ActionColumn';
 import AddDishModal from '../components/AddDishModal';
 import useDeviceType from '../hooks/useDeviceType';
-import { getServingReservations } from '../service/tables';
+import { getServingReservations, addOrderItems } from '../service/tables';
 
 const { Title, Text } = Typography;
 
@@ -140,7 +140,37 @@ const TableManagement = () => {
 
   const confirmOrderMutation = useMutation({
     mutationFn: async ({ reservationCode, orderId }) => {
-      return { reservationCode, orderId };
+      const queryCache = queryClient.getQueryCache();
+      const query = queryCache.find({ queryKey: ['servingReservations'] });
+      const rawData = query?.state?.data;
+
+      if (!rawData || !rawData.success || !rawData.data) {
+        throw new Error('Không tìm thấy thông tin đơn đặt bàn');
+      }
+
+      const reservation = rawData.data.find(r => r.reservation_code === reservationCode);
+      if (!reservation) {
+        throw new Error('Không tìm thấy đơn đặt bàn');
+      }
+
+      const menu = (reservation.menus || []).find(m => m.id === orderId);
+      if (!menu || !menu.dishId) {
+        throw new Error('Không tìm thấy thông tin món');
+      }
+
+      const reservationId = reservation.id || reservation.reservation_id;
+      if (!reservationId) {
+        throw new Error('Không tìm thấy ID đơn đặt bàn');
+      }
+
+      const response = await addOrderItems(reservationId, [
+        {
+          menu_id: menu.dishId,
+          quantity: menu.quantity,
+        },
+      ]);
+
+      return response;
     },
     onMutate: async ({ reservationCode, orderId }) => {
       await queryClient.cancelQueries({ queryKey: ['servingReservations'] });
@@ -180,7 +210,24 @@ const TableManagement = () => {
       if (context?.previousReservations) {
         queryClient.setQueryData(['servingReservations'], context.previousReservations);
       }
-      messageApi.error('Không thể xác nhận món!');
+      let errorMessage = 'Không thể xác nhận món!';
+      if (err && typeof err === 'object') {
+        if (err.message) {
+          errorMessage = err.message;
+        } else if (err.response && err.response.data) {
+          if (err.response.data.errors) {
+            const allErrors = Object.values(err.response.data.errors).flat();
+            errorMessage = allErrors.join(', ');
+          } else if (err.response.data.message) {
+            errorMessage = err.response.data.message;
+          }
+        } else if (err.data && err.data.message) {
+          errorMessage = err.data.message;
+        }
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      messageApi.error(errorMessage);
     },
     onSuccess: () => {
       messageApi.success('Đã xác nhận món thành công!');

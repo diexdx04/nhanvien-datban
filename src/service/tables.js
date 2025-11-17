@@ -5,3 +5,11 @@ export const getServingReservations = async () => {
   return response;
 };
 
+export const addOrderItems = async (reservationId, menus) => {
+  const response = await axiosInstance.post('/dat-ban-an/order-items', {
+    reservation_id: reservationId,
+    menus: menus,
+  });
+  return response;
+};
+
