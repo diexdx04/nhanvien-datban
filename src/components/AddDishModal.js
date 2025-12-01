@@ -9,6 +9,7 @@ const { Title, Text } = Typography;
 const AddDishModal = ({ open, onCancel, onAddDish, reservationCode, tableNames, isTablet = true }) => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [quantities, setQuantities] = useState({});
+  const [selectedDishesInfo, setSelectedDishesInfo] = useState({});
 
   const {
     data: categoriesData,
@@ -55,15 +56,39 @@ const AddDishModal = ({ open, onCancel, onAddDish, reservationCode, tableNames, 
   React.useEffect(() => {
     if (!open) {
       setQuantities({});
+      setSelectedDishesInfo({});
       setSelectedCategory(null);
     }
   }, [open]);
 
   const handleQuantityChange = (dishId, value) => {
+    const newQuantity = value || 0;
+    const dishIdStr = String(dishId);
     setQuantities(prev => ({
       ...prev,
-      [dishId]: value || 0,
+      [dishIdStr]: newQuantity,
     }));
+    
+    // Lưu thông tin món khi quantity > 0, xóa khi quantity = 0
+    if (newQuantity > 0 && menusData) {
+      const dish = menusData.find(d => d.id === parseInt(dishId));
+      if (dish) {
+        setSelectedDishesInfo(prev => ({
+          ...prev,
+          [dishIdStr]: {
+            id: dish.id,
+            name: dish.name,
+            price: parseFloat(dish.price),
+          },
+        }));
+      }
+    } else {
+      setSelectedDishesInfo(prev => {
+        const updated = { ...prev };
+        delete updated[dishIdStr];
+        return updated;
+      });
+    }
   };
 
   const handleAddToTable = () => {
@@ -71,22 +96,21 @@ const AddDishModal = ({ open, onCancel, onAddDish, reservationCode, tableNames, 
     
     Object.keys(quantities).forEach(dishId => {
       const quantity = quantities[dishId];
-      if (quantity > 0 && menusData) {
-        const dish = menusData.find(d => d.id === parseInt(dishId));
-        if (dish) {
-          selectedDishes.push({
-            id: dish.id,
-            name: dish.name,
-            price: parseFloat(dish.price),
-            quantity: quantity,
-          });
-        }
+      if (quantity > 0 && selectedDishesInfo[dishId]) {
+        const dishInfo = selectedDishesInfo[dishId];
+        selectedDishes.push({
+          id: dishInfo.id,
+          name: dishInfo.name,
+          price: dishInfo.price,
+          quantity: quantity,
+        });
       }
     });
 
     if (selectedDishes.length > 0) {
       onAddDish(reservationCode, selectedDishes);
       setQuantities({});
+      setSelectedDishesInfo({});
       onCancel();
     }
   };
@@ -138,7 +162,6 @@ const AddDishModal = ({ open, onCancel, onAddDish, reservationCode, tableNames, 
                     block
                     onClick={() => {
                       setSelectedCategory(category.id);
-                      setQuantities({});
                     }}
                     style={{
                       height: buttonHeight,
@@ -201,7 +224,7 @@ const AddDishModal = ({ open, onCancel, onAddDish, reservationCode, tableNames, 
                           )
                         }
                         style={{
-                          border: quantities[dish.id] > 0 ? '2px solid #1890ff' : '1px solid #e8e8e8',
+                          border: quantities[String(dish.id)] > 0 ? '2px solid #1890ff' : '1px solid #e8e8e8',
                         }}
                         bodyStyle={{ padding: '12px' }}
                       >
@@ -217,7 +240,7 @@ const AddDishModal = ({ open, onCancel, onAddDish, reservationCode, tableNames, 
                           <InputNumber
                             min={0}
                             max={99}
-                            value={quantities[dish.id] || 0}
+                            value={quantities[String(dish.id)] || 0}
                             onChange={(value) => handleQuantityChange(dish.id, value)}
                             size={isTablet ? 'large' : 'middle'}
                             style={{ width: '80px' }}

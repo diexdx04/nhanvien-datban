@@ -1,6 +1,6 @@
 import axiosInstance from '../api/axiosInstance';
 
-export const login = async (email, password) => {
+export const login = async (phone, password) => {
   const config = {
     headers: {
       'Accept': 'application/json',
@@ -9,7 +9,7 @@ export const login = async (email, password) => {
   };
   
   return axiosInstance.post('/login', {
-    email,
+    phone,
     password,
   }, config);
 };

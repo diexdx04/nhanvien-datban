@@ -4,17 +4,17 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useNavigate } from 'react-router-dom';
 import { Input, Button, Card, Typography, message } from 'antd';
-import { MailOutlined, LockOutlined } from '@ant-design/icons';
+import { PhoneOutlined, LockOutlined } from '@ant-design/icons';
 import useDeviceType from '../hooks/useDeviceType';
 import { login } from '../service/auth';
 
 const { Title } = Typography;
 
 const loginSchema = yup.object({
-  email: yup
+  phone: yup
     .string()
-    .required('Vui lòng nhập email')
-    .email('Email không hợp lệ'),
+    .required('Vui lòng nhập số điện thoại')
+    .matches(/^[0-9]{10,11}$/, 'Số điện thoại không hợp lệ'),
   password: yup
     .string()
     .required('Vui lòng nhập mật khẩu')
@@ -54,11 +54,11 @@ const Login = () => {
 
   const onSubmit = async (data) => {
     try {
-      const response = await login(data.email, data.password);
+      const response = await login(data.phone, data.password);
   
       
       if (response && response.success === false) {
-        messageApi.error(response.message || 'Email hoặc mật khẩu không đúng.');
+        messageApi.error(response.message || 'Số điện thoại hoặc mật khẩu không đúng.');
         return;
       }
       
@@ -147,19 +147,19 @@ const Login = () => {
           >
             <div className={mbSpacing.mb6}>
               <label className="block font-medium text-gray-700 mb-3" style={{ fontSize: labelSize }}>
-                Email
+                Số điện thoại
               </label>
               <Controller
-                name="email"
+                name="phone"
                 control={control}
                 render={({ field }) => (
                   <Input
                     {...field}
-                    type="email"
+                    type="tel"
                     size="large"
-                    prefix={<MailOutlined className="text-gray-400" style={{ fontSize: iconSize }} />}
-                    placeholder="Nhập email"
-                    status={errors.email ? 'error' : ''}
+                    prefix={<PhoneOutlined className="text-gray-400" style={{ fontSize: iconSize }} />}
+                    placeholder="Nhập số điện thoại"
+                    status={errors.phone ? 'error' : ''}
                     style={{
                       height: inputHeight,
                       fontSize: inputFontSize,
@@ -168,9 +168,9 @@ const Login = () => {
                   />
                 )}
               />
-              {errors.email && (
+              {errors.phone && (
                 <p className="text-red-500 mt-2" style={{ fontSize: isTablet ? '16px' : '14px' }}>
-                  {errors.email.message}
+                  {errors.phone.message}
                 </p>
               )}
             </div>
