@@ -148,9 +148,9 @@ const AddDishModal = ({ open, onCancel, onAddDish, reservationCode, tableNames, 
           </Text>
         </div>
       ) : (
-        <Row gutter={[16, 16]} style={{ marginTop: '24px' }}>
+        <Row gutter={[16, 16]} style={{ marginTop: '24px', minHeight: '400px', maxHeight: '600px' }}>
           <Col span={6}>
-            <div style={{ borderRight: '1px solid #e8e8e8', paddingRight: '16px' }}>
+            <div style={{ borderRight: '1px solid #e8e8e8', paddingRight: '16px', height: '100%' }}>
               <Title level={4} style={{ marginBottom: '16px', fontSize: categoryFontSize }}>
                 Danh mục
               </Title>
@@ -177,86 +177,95 @@ const AddDishModal = ({ open, onCancel, onAddDish, reservationCode, tableNames, 
           </Col>
 
           <Col span={18}>
-            <div>
-              <Title level={4} style={{ marginBottom: '16px', fontSize: categoryFontSize }}>
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <Title level={4} style={{ marginBottom: '16px', fontSize: categoryFontSize, flexShrink: 0 }}>
                 {currentCategory?.name || 'Chọn danh mục'}
               </Title>
-              {isLoadingMenus ? (
-                <div style={{ textAlign: 'center', padding: '40px' }}>
-                  <Spin size="large" />
-                  <Text style={{ display: 'block', marginTop: '16px', fontSize: dishFontSize }}>
-                    Đang tải danh sách món...
-                  </Text>
-                </div>
-              ) : menusData && menusData.length > 0 ? (
-                <Row gutter={[12, 12]}>
-                  {menusData.map((dish) => (
-                    <Col span={12} key={dish.id}>
-                      <Card
-                        cover={
-                          dish.image_url ? (
-                            <img
-                              alt={dish.name}
-                              src={dish.image_url}
-                              style={{
-                                height: '200px',
-                                objectFit: 'cover',
-                                width: '100%',
-                              }}
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                              }}
+              <div style={{ 
+                flex: 1, 
+                overflowY: 'auto', 
+                overflowX: 'hidden',
+                maxHeight: '550px',
+                paddingRight: '8px',
+                marginRight: '-8px'
+              }}>
+                {isLoadingMenus ? (
+                  <div style={{ textAlign: 'center', padding: '40px' }}>
+                    <Spin size="large" />
+                    <Text style={{ display: 'block', marginTop: '16px', fontSize: dishFontSize }}>
+                      Đang tải danh sách món...
+                    </Text>
+                  </div>
+                ) : menusData && menusData.length > 0 ? (
+                  <Row gutter={[12, 12]}>
+                    {menusData.map((dish) => (
+                      <Col span={12} key={dish.id}>
+                        <Card
+                          cover={
+                            dish.image_url ? (
+                              <img
+                                alt={dish.name}
+                                src={dish.image_url}
+                                style={{
+                                  height: '200px',
+                                  objectFit: 'cover',
+                                  width: '100%',
+                                }}
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  height: '200px',
+                                  backgroundColor: '#f5f5f5',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#999',
+                                  fontSize: '14px',
+                                }}
+                              >
+                               ảnh món
+                              </div>
+                            )
+                          }
+                          style={{
+                            border: quantities[String(dish.id)] > 0 ? '2px solid #1890ff' : '1px solid #e8e8e8',
+                          }}
+                          bodyStyle={{ padding: '12px' }}
+                        >
+                          <div style={{ marginBottom: '12px' }}>
+                            <Text strong style={{ fontSize: dishFontSize, display: 'block', marginBottom: '8px' }}>
+                              {dish.name}
+                            </Text>
+                            <Text style={{ fontSize: isTablet ? '14px' : '12px', color: '#666', display: 'block' }}>
+                              {parseFloat(dish.price).toLocaleString('vi-VN')}đ
+                            </Text>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <InputNumber
+                              min={0}
+                              max={99}
+                              value={quantities[String(dish.id)] || 0}
+                              onChange={(value) => handleQuantityChange(dish.id, value)}
+                              size={isTablet ? 'large' : 'middle'}
+                              style={{ width: '80px' }}
                             />
-                          ) : (
-                            <div
-                              style={{
-                                height: '200px',
-                                backgroundColor: '#f5f5f5',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#999',
-                                fontSize: '14px',
-                              }}
-                            >
-                             ảnh món
-                            </div>
-                          )
-                        }
-                        style={{
-                          border: quantities[String(dish.id)] > 0 ? '2px solid #1890ff' : '1px solid #e8e8e8',
-                        }}
-                        bodyStyle={{ padding: '12px' }}
-                      >
-                        <div style={{ marginBottom: '12px' }}>
-                          <Text strong style={{ fontSize: dishFontSize, display: 'block', marginBottom: '8px' }}>
-                            {dish.name}
-                          </Text>
-                          <Text style={{ fontSize: isTablet ? '14px' : '12px', color: '#666', display: 'block' }}>
-                            {parseFloat(dish.price).toLocaleString('vi-VN')}đ
-                          </Text>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <InputNumber
-                            min={0}
-                            max={99}
-                            value={quantities[String(dish.id)] || 0}
-                            onChange={(value) => handleQuantityChange(dish.id, value)}
-                            size={isTablet ? 'large' : 'middle'}
-                            style={{ width: '80px' }}
-                          />
-                        </div>
-                      </Card>
-                    </Col>
-                  ))}
-                </Row>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '40px' }}>
-                  <Text style={{ fontSize: dishFontSize, color: '#999' }}>
-                    Không có món trong danh mục này
-                  </Text>
-                </div>
-              )}
+                          </div>
+                        </Card>
+                      </Col>
+                    ))}
+                  </Row>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px' }}>
+                    <Text style={{ fontSize: dishFontSize, color: '#999' }}>
+                      Không có món trong danh mục này
+                    </Text>
+                  </div>
+                )}
+              </div>
             </div>
           </Col>
         </Row>

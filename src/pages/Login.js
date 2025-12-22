@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -33,6 +33,26 @@ const Login = () => {
     resolver: yupResolver(loginSchema),
     mode: 'onBlur',
   });
+
+  // Kiểm tra nếu đã đăng nhập thì redirect về trang chính
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    
+    if (token && user) {
+      try {
+        const userData = JSON.parse(user);
+        // Kiểm tra nếu user có role admin thì redirect
+        if (userData && userData.role === 'admin') {
+          navigate('/tables', { replace: true });
+        }
+      } catch (error) {
+        // Nếu parse lỗi thì xóa và cho phép đăng nhập lại
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    }
+  }, [navigate]);
 
   const isTablet = deviceType === 'tablet';
   const containerStyle = isTablet
